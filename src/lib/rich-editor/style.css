@@ -1,0 +1,68 @@
+.tiptap.ProseMirror {
+    background: #fff;
+    min-height: 100px;
+    color: #374151;
+    font-size: 17px;
+    line-height: 1.75;
+    padding: 1em;
+}
+
+.tiptap.ProseMirror.ProseMirror-focused {
+    border: unset;
+    outline: unset;
+
+}
+
+.custom-bullet-list {
+    padding-left: 25px;
+    list-style: disc !important;
+}
+
+.custom-ordered-list {
+    padding-left: 25px;
+    list-style: decimal !important;
+}
+
+h1.custom-heading {
+    font-weight: bolder;
+}
+
+h2.custom-heading {
+    font-weight: bold;
+}
+
+h3.custom-heading {
+    font-weight: bold;
+}
+
+.tiptap {
+    :first-child {
+        margin-top: 0;
+    }
+
+    hr {
+        border: none;
+        border-top: 1px solid #e5e7eb;
+        cursor: pointer;
+        margin: 2rem 0;
+
+        &.ProseMirror-selectednode {
+            border-top: 1px solid #e5e7eb;
+        }
+    }
+
+    blockquote {
+        border-left: 3px solid #e5e7eb;
+        background: #f8f8f8;
+        padding-top: 5px;
+        padding-bottom: 5px;
+        margin: 1.5rem 0;
+        padding-left: 1rem;
+    }
+
+    a{
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+}

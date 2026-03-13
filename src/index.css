@@ -1,0 +1,4 @@
+@import "tailwindcss";
+.mantine-RichTextEditor-Typography{
+    @apply min-h-fit! bg-white;
+}
