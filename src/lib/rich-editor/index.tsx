@@ -1,9 +1,9 @@
-import {useEditor, EditorContent} from '@tiptap/react';
+import {useEditor, EditorContent,} from '@tiptap/react';
 import StarterKit from "@tiptap/starter-kit";
 import "./style.css"
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import FontSize from "@tiptap/extension-text-style/font-size";
-import { TextStyle} from '@tiptap/extension-text-style'
+import {TextStyle} from '@tiptap/extension-text-style'
 import Underline from "@tiptap/extension-underline";
 import {BoldButton, ItalicButton, StrikeButton, UnderlineButton} from "./atoms/character.buttons.tsx";
 import {NumberedList, UnorderedList} from "./atoms/list.button.tsx";
@@ -18,10 +18,15 @@ import Image from '@tiptap/extension-image'
 import ImageUpload from "./atoms/image.upload.tsx";
 import Link from "@tiptap/extension-link";
 import LinkButton from "./atoms/link.button.tsx";
+import {Markdown} from '@tiptap/markdown'
+import React from "react";
+import {sanitizeHtml} from "../sanitize.ts";
 
 export default function RichEditor() {
+    const [html, setHtml] = React.useState('');
     const editor = useEditor({
         extensions: [
+            Markdown,
             StarterKit.configure({
                 bulletList: {
                     keepMarks: true,
@@ -99,44 +104,55 @@ export default function RichEditor() {
                 },
             }),
         ],
-        content: "<h3>Salam Custom Editor!</h3><p>Burada hər şey sizin nəzarətinizdədir.</p>",
+        onUpdate: ({editor}) => {
+            setHtml(editor.getHTML());
+        },
+        contentType: "markdown",
     });
     if (!editor) return null;
-    return <div className="min-h-50 w-full min-w-50 h-auto bg-gray-100 border border-gray-400 rounded-sm mb-4 p-2">
-        <div className="bg-gray-50 p-2">
-            <div className={"flex items-center gap-2"}>
-                <div className={"flex w-fit items-center pr-2 mr-2 border-r border-gray-200"}>
-                    <BoldButton editor={editor}/>
-                    <ItalicButton editor={editor}/>
-                    <UnderlineButton editor={editor}/>
-                    <StrikeButton editor={editor}/>
-                </div>
-                <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
-                    <UnorderedList editor={editor}/>
-                    <NumberedList editor={editor}/>
-                </div>
 
-                <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
-                    <FontSizeButton editor={editor}/>
-                </div>
-                <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
-                    <HeadingButton editor={editor}/>
-                </div>
+    return <div className={"grid grid-cols-2 items-stretch gap-4"}>
 
-                <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
-                    <HorizontalRuleButton editor={editor}/>
-                    <BlockquoteButton editor={editor}/>
-                </div>
+        <div
+            className="max-w-full mx-auto w-full min-w-50 h-auto bg-gray-100 border border-gray-400 rounded-sm p-2">
+            <div className="bg-gray-50 p-2">
+                <div className={"flex items-center gap-2"}>
+                    <div className={"flex w-fit items-center pr-2 mr-2 border-r border-gray-200"}>
+                        <BoldButton editor={editor}/>
+                        <ItalicButton editor={editor}/>
+                        <UnderlineButton editor={editor}/>
+                        <StrikeButton editor={editor}/>
+                    </div>
+                    <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
+                        <UnorderedList editor={editor}/>
+                        <NumberedList editor={editor}/>
+                    </div>
 
-                <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
-                    <MediaControls editor={editor}/>
-                    <ImageUpload editor={editor}/>
-                    <LinkButton editor={editor}/>
-                </div>
+                    <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
+                        <FontSizeButton editor={editor}/>
+                    </div>
+                    <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
+                        <HeadingButton editor={editor}/>
+                    </div>
 
+                    <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
+                        <HorizontalRuleButton editor={editor}/>
+                        <BlockquoteButton editor={editor}/>
+                    </div>
+
+                    <div className={"flex w-fit items-center pr-2 border-r border-gray-200"}>
+                        <MediaControls editor={editor}/>
+                        <ImageUpload editor={editor}/>
+                        <LinkButton editor={editor}/>
+
+                    </div>
+                </div>
             </div>
+            <EditorContent editor={editor}/>
 
         </div>
-        <EditorContent editor={editor} className="min-h-50!"/>
+
+        <div className={"bg-white border h-100% border-gray-200 p-2"}
+             dangerouslySetInnerHTML={{__html: sanitizeHtml(html)}}/>
     </div>;
 }
