@@ -1,39 +1,81 @@
+import  { useState } from "react";
+import { Modal, Divider, Empty } from "antd";
+import { useEditorState, type Editor } from "@tiptap/react";
+import { FaEye } from "react-icons/fa";
 import ToolbarButton from "./toolbar.tsx";
-import React from "react";
-import {Modal} from "antd";
-import type {Editor} from "@tiptap/react";
-import {sanitizeHtml} from "../../sanitize.ts";
-import {FaEye} from "react-icons/fa";
+import { sanitizeHtml } from "../../sanitize.ts";
 
 interface Props {
-    editor: Editor,
-    value?: string,
+  editor: Editor;
 }
 
-export default function PreviewBtn({editor, value}: Props) {
-    const [isOpen, setIsOpen] = React.useState(false);
+export default function PreviewBtn({ editor }: Props) {
+  const [isOpen, setIsOpen] = useState(false);
 
-    const handleClick = () => {
-        setIsOpen(true);
-        document.body.style.overflow = "hidden";
-    }
-    const handleClose = () => {
-        setIsOpen(false);
-        document.body.style.overflow = "unset";
-    }
+  // useEditorState vasitəsilə editorun daxili HTML-ini reaktiv şəkildə götürürük
+  const { htmlContent } = useEditorState({
+    editor,
+    selector: (ctx) => ({
+      htmlContent: ctx.editor.getHTML(),
+    }),
+  });
 
+  if (!editor) return null;
 
-    if (!editor) return null;
-    return (
-        <>
-            <ToolbarButton title={"Preview"} onClick={handleClick} isActive={isOpen}>
-                <FaEye/>
-            </ToolbarButton>
-            {value?.trim() &&
-                <Modal footer={[]} open={isOpen} onCancel={handleClose}>
-                    <article dangerouslySetInnerHTML={{__html: sanitizeHtml(value)}}/>
-                </Modal>
-            }
-        </>
-    );
-} 
+  // Boş kontent yoxlaması (Tiptap boş olanda adətən '<p></p>' qaytarır)
+  const isEmpty = !htmlContent || htmlContent === "<p></p>";
+
+  return (
+    <>
+      <ToolbarButton 
+        title="Sənədə Önizləmə" 
+        onClick={() => setIsOpen(true)} 
+        isActive={isOpen}
+      >
+        <FaEye size={18} />
+      </ToolbarButton>
+
+      <Modal
+        title={
+          <div className="flex items-center gap-2 text-slate-700">
+            <FaEye className="text-sky-500" />
+            <span className="text-[15px] font-bold uppercase tracking-tight">
+              Sənəd Önizləməsi
+            </span>
+          </div>
+        }
+        open={isOpen}
+        onCancel={() => setIsOpen(false)}
+        footer={null}
+        width={1000}
+        centered
+        destroyOnClose
+        // Ant Design 5.x üçün body styles
+        styles={{ 
+          body: { 
+            maxHeight: "75vh", 
+            overflowY: "auto", 
+            padding: "30px 0",
+            backgroundColor: "#fff" 
+          } 
+        }}
+      >
+        <Divider style={{ margin: "10px 0 25px 0" }} />
+
+        {isEmpty ? (
+          <div className="py-20">
+            <Empty description="Göstəriləcək məzmun yoxdur" />
+          </div>
+        ) : (
+          /* MÜTLƏQ: 'tiptap' class-ını əlavə edirik ki, style.css-də yazdığımız 
+             table, heading, list və alignment stilləri bura tətbiq olunsun.
+          */
+          <article 
+            className="tiptap preview-render"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent) }} 
+          />
+        )}
+      </Modal>
+    </>
+  );
+}

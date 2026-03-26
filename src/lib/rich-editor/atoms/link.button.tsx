@@ -1,197 +1,150 @@
-import {useCallback, useState, useRef, useEffect, useMemo} from "react";
-import type {Editor} from "@tiptap/react";
-import ToolbarButton from "./toolbar.tsx";
-import {FaLink, FaPhone, FaEnvelope, FaExternalLinkAlt, FaUnlink} from "react-icons/fa";
-import {MdAnchor} from "react-icons/md";
+import { useCallback, useRef, useState } from "react";
+import { FaLink, FaUnlink } from "react-icons/fa";
+import ToolbarButton from "./toolbar";
+import type { Editor } from "@tiptap/react";
 
-interface Props {
-    editor: Editor;
+interface BtnProps {
+  editor: Editor;
 }
 
-type LinkType = "url" | "email" | "phone" | "anchor";
+export default function LinkButton({ editor }: BtnProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [openInNewTab, setOpenInNewTab] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
-interface FormState {
-    linkType: LinkType;
-    value: string;
-    openInNewTab: boolean;
-}
+  const openModal = useCallback(() => {
+    const attrs = editor.getAttributes("link");
 
-const LINK_TYPES: {type: LinkType; label: string; icon: React.ReactNode; placeholder: string}[] = [
-    {type: "url",    label: "Web",    icon: <FaExternalLinkAlt size={12}/>, placeholder: "https://example.com"},
-    {type: "email",  label: "Email",  icon: <FaEnvelope size={12}/>,        placeholder: "info@example.com"},
-    {type: "phone",  label: "Telefon",icon: <FaPhone size={12}/>,           placeholder: "+994501234567"},
-    {type: "anchor", label: "Anchor", icon: <MdAnchor size={12}/>,          placeholder: "#section-id"},
-];
+    // Əgər link aktivdirsə mövcud dəyərləri götür, deyilsə sıfırla
+    setValue(attrs.href ?? "");
+    setOpenInNewTab(attrs.target === "_blank");
 
-const buildHref = (type: LinkType, value: string): string => {
-    const v = value.trim();
-    if (!v) return "";
-    switch (type) {
-        case "email":  return v.startsWith("mailto:") ? v : `mailto:${v}`;
-        case "phone":  return v.startsWith("tel:")    ? v : `tel:${v}`;
-        case "anchor": return v.startsWith("#")       ? v : `#${v}`;
-        default:       return v.startsWith("http")    ? v : `https://${v}`;
-    }
-};
+    setIsOpen(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, [editor]);
 
-const DEFAULT_FORM: FormState = {linkType: "url", value: "", openInNewTab: true};
+  const closeModal = useCallback(() => {
+    setIsOpen(false);
+    // Modal bağlanan kimi state-ləri təmizləyirik ki, növbəti dəfə təmiz açılsın
+    setValue("");
+    setOpenInNewTab(false);
+  }, []);
 
-export default function LinkButton({editor}: Props) {
-    const [isOpen, setIsOpen] = useState(false);
-    const [form, setForm] = useState<FormState>(DEFAULT_FORM);
-    const panelRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
+  const applyLink = useCallback(() => {
+    const trimmed = value.trim();
+    if (!trimmed) return;
 
-    // Compute initial form state from existing link — no setState inside effect
-    const existingLinkState = useMemo<FormState>(() => {
-        if (!isOpen) return DEFAULT_FORM;
-        const attrs = editor.getAttributes('link');
-        if (!attrs.href) return DEFAULT_FORM;
+    const href =
+      trimmed.startsWith("http") ||
+      trimmed.startsWith("#") ||
+      trimmed.startsWith("mailto:") ||
+      trimmed.startsWith("tel:")
+        ? trimmed
+        : `https://${trimmed}`;
 
-        const href: string = attrs.href;
-        if (href.startsWith("mailto:"))
-            return {linkType: "email", value: href.replace("mailto:", ""), openInNewTab: false};
-        if (href.startsWith("tel:"))
-            return {linkType: "phone", value: href.replace("tel:", ""), openInNewTab: false};
-        if (href.startsWith("#"))
-            return {linkType: "anchor", value: href, openInNewTab: false};
-        return {linkType: "url", value: href, openInNewTab: attrs.target === "_blank"};
-    }, [isOpen, editor]);
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .toggleLink({
+        href,
+        target: openInNewTab ? "_blank" : "_self",
+      })
+      .run();
 
-    // Single setState call — no cascading renders
-    useEffect(() => {
-        if (isOpen) {
-            setForm(existingLinkState);
-            setTimeout(() => inputRef.current?.focus(), 50);
-        }
-    }, [isOpen, existingLinkState]);
+    closeModal();
+  }, [editor, value, openInNewTab, closeModal]);
 
-    // Close on outside click
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        if (isOpen) document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-    }, [isOpen]);
+  const removeLink = useCallback(() => {
+    editor.chain().focus().unsetLink().run();
+    closeModal();
+  }, [editor, closeModal]);
 
-    const applyLink = useCallback(() => {
-        const href = buildHref(form.linkType, form.value);
-        if (!href) return;
+  return (
+    <>
+      <ToolbarButton
+        title="Link (Ctrl+K)"
+        onClick={openModal}
+        isActive={editor.isActive("link")}
+      >
+        <FaLink size={15} />
+      </ToolbarButton>
 
-        editor.chain().focus().extendMarkRange('link').setLink({
-            href,
-            target: (form.linkType === "url" && form.openInNewTab) ? "_blank" : null,
-            rel: null,
-        }).run();
+      {isOpen && (
+        <div
+          ref={overlayRef}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+          onMouseDown={(e) => {
+            if (e.target === overlayRef.current) closeModal();
+          }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-96">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">
+              Link əlavə et
+            </h3>
 
-        setIsOpen(false);
-    }, [editor, form]);
+            <input
+              ref={inputRef}
+              type="text"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") applyLink();
+                if (e.key === "Escape") closeModal();
+              }}
+              placeholder="https://example.com"
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-300/40 transition-all mb-3"
+            />
 
-    const removeLink = useCallback(() => {
-        editor.chain().focus().extendMarkRange('link').unsetLink().run();
-        setIsOpen(false);
-    }, [editor]);
-
-    const currentType = LINK_TYPES.find(t => t.type === form.linkType)!;
-
-    return (
-        <div className="relative" ref={panelRef}>
-            <ToolbarButton
-                title="Link (Ctrl+K)"
-                onClick={() => setIsOpen(prev => !prev)}
-                isActive={editor.isActive('link') || isOpen}
+            <div
+              onClick={() => setOpenInNewTab(!openInNewTab)}
+              className="flex items-center gap-2 mb-4 cursor-pointer select-none group"
             >
-                <FaLink size={15}/>
-            </ToolbarButton>
+              <div
+                className={`w-8 h-4 rounded-full transition-colors duration-200 flex items-center px-0.5 ${openInNewTab ? "bg-sky-400" : "bg-slate-200"}`}
+              >
+                <div
+                  className={`w-3 h-3 bg-white rounded-full shadow transition-transform duration-200 ${openInNewTab ? "translate-x-4" : "translate-x-0"}`}
+                />
+              </div>
+              <span className="text-xs text-slate-500 group-hover:text-slate-700">
+                Yeni tabda aç
+              </span>
+            </div>
 
-            {isOpen && (
-                <div className="absolute left-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={applyLink}
+                disabled={!value.trim()}
+                className="flex-1 py-2 bg-sky-500 hover:bg-sky-600 disabled:bg-slate-100 text-white text-sm font-medium rounded-lg transition-all"
+              >
+                Tətbiq et
+              </button>
 
-                    {/* Type tabs */}
-                    <div className="flex gap-1 mb-3 p-1 bg-slate-100 rounded-lg">
-                        {LINK_TYPES.map(({type, label, icon}) => (
-                            <button
-                                key={type}
-                                type="button"
-                                onClick={() => setForm(prev => ({...prev, linkType: type, value: ""}))}
-                                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer
-                                    ${form.linkType === type
-                                    ? 'bg-white text-sky-700 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'}`}
-                            >
-                                {icon}
-                                {label}
-                            </button>
-                        ))}
-                    </div>
+              {editor.isActive("link") && (
+                <button
+                  type="button"
+                  onClick={removeLink}
+                  className="py-2 px-3 text-rose-400 hover:bg-rose-50 rounded-lg transition-all"
+                >
+                  <FaUnlink size={14} />
+                </button>
+              )}
 
-                    {/* Input */}
-                    <div className="mb-3">
-                        <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">
-                            {currentType.label}
-                        </label>
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={form.value}
-                            onChange={e => setForm(prev => ({...prev, value: e.target.value}))}
-                            onKeyDown={e => e.key === 'Enter' && applyLink()}
-                            placeholder={currentType.placeholder}
-                            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-300/40 focus:border-sky-400 transition-all"
-                        />
-                    </div>
-
-                    {/* New tab toggle - only for url */}
-                    {form.linkType === "url" && (
-                        <label className="flex items-center gap-2 mb-4 cursor-pointer select-none">
-                            <div
-                                onClick={() => setForm(prev => ({...prev, openInNewTab: !prev.openInNewTab}))}
-                                className={`w-8 h-4 rounded-full transition-colors duration-200 flex items-center px-0.5
-                                    ${form.openInNewTab ? 'bg-sky-400' : 'bg-slate-200'}`}
-                            >
-                                <div className={`w-3 h-3 bg-white rounded-full shadow transition-transform duration-200
-                                    ${form.openInNewTab ? 'translate-x-4' : 'translate-x-0'}`}
-                                />
-                            </div>
-                            <span className="text-xs text-slate-500">Yeni tabda aç</span>
-                        </label>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={applyLink}
-                            disabled={!form.value.trim()}
-                            className="flex-1 py-2 px-4 bg-sky-500 hover:bg-sky-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer text-white text-sm font-medium rounded-lg transition-all"
-                        >
-                            Tətbiq et
-                        </button>
-
-                        {editor.isActive('link') && (
-                            <button
-                                type="button"
-                                onClick={removeLink}
-                                className="cursor-pointer py-2 px-3 text-rose-400 hover:bg-rose-50 hover:text-rose-600 text-sm font-medium rounded-lg transition-all"
-                                title="Linki sil"
-                            >
-                                <FaUnlink size={14}/>
-                            </button>
-                        )}
-
-                        <button
-                            type="button"
-                            onClick={() => setIsOpen(false)}
-                            className="cursor-pointer py-2 px-4 text-slate-500 hover:bg-slate-100 text-sm font-medium rounded-lg transition-all"
-                        >
-                            Ləğv et
-                        </button>
-                    </div>
-                </div>
-            )}
+              <button
+                type="button"
+                onClick={closeModal}
+                className="py-2 px-4 text-slate-500 hover:bg-slate-100 text-sm font-medium rounded-lg transition-all"
+              >
+                Ləğv et
+              </button>
+            </div>
+          </div>
         </div>
-    );
+      )}
+    </>
+  );
 }
