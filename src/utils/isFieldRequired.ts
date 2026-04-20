@@ -1,13 +1,12 @@
 import { z } from "zod";
 
-export const isFieldRequired = (schema: z.ZodObject<any>, fieldName: string) => {
-    let field = schema.shape[fieldName];
+export const isFieldRequired = <T extends z.ZodRawShape>(
+    schema: z.ZodObject<T>,
+    fieldName: string,
+): boolean => {
+    const field = schema.shape[fieldName] as z.ZodTypeAny | undefined;
 
     if (!field) return false;
-    const isOptional = field.isOptional();
-    if (!isOptional) {
-        return true;
-    }
 
-    return false;
+    return !field.isOptional();
 };
